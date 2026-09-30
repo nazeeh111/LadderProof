@@ -1,0 +1,134 @@
+{
+  "status": "verified-comparison",
+  "before": {
+    "status": "verified",
+    "corner_count": 4096,
+    "bits": 6,
+    "nondecreasing": false,
+    "worst_transition": {
+      "from": 31,
+      "to": 32,
+      "step": "-269227/7660721",
+      "corner": 3585,
+      "from_voltage": "3910102/7660721",
+      "to_voltage": "3640875/7660721",
+      "dnl_lsb": "-24891249/7660721",
+      "resistors": [
+        {
+          "id": "B0",
+          "value": "2100"
+        },
+        {
+          "id": "B1",
+          "value": "1900"
+        },
+        {
+          "id": "B2",
+          "value": "1900"
+        },
+        {
+          "id": "B3",
+          "value": "1900"
+        },
+        {
+          "id": "B4",
+          "value": "1900"
+        },
+        {
+          "id": "B5",
+          "value": "1900"
+        },
+        {
+          "id": "S0",
+          "value": "950"
+        },
+        {
+          "id": "S1",
+          "value": "950"
+        },
+        {
+          "id": "S2",
+          "value": "950"
+        },
+        {
+          "id": "S3",
+          "value": "1050"
+        },
+        {
+          "id": "S4",
+          "value": "1050"
+        },
+        {
+          "id": "T",
+          "value": "2100"
+        }
+      ]
+    }
+  },
+  "after": {
+    "status": "verified",
+    "corner_count": 4096,
+    "bits": 6,
+    "nondecreasing": true,
+    "worst_transition": {
+      "from": 31,
+      "to": 32,
+      "step": "186147971/34016602567",
+      "corner": 3585,
+      "from_voltage": "16653893434/34016602567",
+      "to_voltage": "16840041405/34016602567",
+      "dnl_lsb": "-22103132423/34016602567",
+      "resistors": [
+        {
+          "id": "B0",
+          "value": "2020"
+        },
+        {
+          "id": "B1",
+          "value": "1980"
+        },
+        {
+          "id": "B2",
+          "value": "1980"
+        },
+        {
+          "id": "B3",
+          "value": "1980"
+        },
+        {
+          "id": "B4",
+          "value": "1980"
+        },
+        {
+          "id": "B5",
+          "value": "1980"
+        },
+        {
+          "id": "S0",
+          "value": "990"
+        },
+        {
+          "id": "S1",
+          "value": "990"
+        },
+        {
+          "id": "S2",
+          "value": "990"
+        },
+        {
+          "id": "S3",
+          "value": "1010"
+        },
+        {
+          "id": "S4",
+          "value": "1010"
+        },
+        {
+          "id": "T",
+          "value": "2020"
+        }
+      ]
+    }
+  },
+  "minimum_step_change_volts": "10584215529852800/260591701633670807"
+}

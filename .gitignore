@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+work-*.txt
+
+.venv-*/
+work-*/
+implementation.md
+ui-implementation.md
+package-verification.json

@@ -1,0 +1,80 @@
+name: Verify exact analysis and installed application
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ladderproof-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Exercise exact solver, independent verifier, CLI and real loopback service
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+
+  frontend:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Exercise production frontend state and exact input behavior
+        run: node --test tests/frontend.test.cjs
+
+  distribution:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install build tooling
+        run: python -m pip install 'setuptools==84.0.0'
+      - name: Build wheel and complete source archive
+        run: |
+          python -m pip wheel --no-deps --no-build-isolation . --wheel-dir dist
+          python -c "from setuptools.build_meta import build_sdist; build_sdist('dist')"
+      - name: Install wheel outside the checkout without runtime dependencies
+        run: |
+          python -m venv "$RUNNER_TEMP/ladderproof-installed"
+          "$RUNNER_TEMP/ladderproof-installed/bin/python" -m pip install --no-index --no-deps dist/*.whl
+      - name: Exercise installed CLI journey, served assets and spawned analysis
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/ladderproof-installed/bin/python" -I "$GITHUB_WORKSPACE/scripts/installed_smoke.py" --source "$GITHUB_WORKSPACE" --report "$RUNNER_TEMP/installed-smoke.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ladderproof-distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14

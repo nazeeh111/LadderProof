@@ -1,0 +1,81 @@
+{
+  "format": "ladderproof.design.v1",
+  "model": "ideal-static-r2r-voltage",
+  "title": "6-bit R-2R ladder",
+  "bits": 6,
+  "vref": "1",
+  "resistors": [
+    {
+      "id": "B0",
+      "nominal": "2000",
+      "min": "1980",
+      "max": "2020"
+    },
+    {
+      "id": "B1",
+      "nominal": "2000",
+      "min": "1980",
+      "max": "2020"
+    },
+    {
+      "id": "B2",
+      "nominal": "2000",
+      "min": "1980",
+      "max": "2020"
+    },
+    {
+      "id": "B3",
+      "nominal": "2000",
+      "min": "1980",
+      "max": "2020"
+    },
+    {
+      "id": "B4",
+      "nominal": "2000",
+      "min": "1980",
+      "max": "2020"
+    },
+    {
+      "id": "B5",
+      "nominal": "2000",
+      "min": "1980",
+      "max": "2020"
+    },
+    {
+      "id": "S0",
+      "nominal": "1000",
+      "min": "990",
+      "max": "1010"
+    },
+    {
+      "id": "S1",
+      "nominal": "1000",
+      "min": "990",
+      "max": "1010"
+    },
+    {
+      "id": "S2",
+      "nominal": "1000",
+      "min": "990",
+      "max": "1010"
+    },
+    {
+      "id": "S3",
+      "nominal": "1000",
+      "min": "990",
+      "max": "1010"
+    },
+    {
+      "id": "S4",
+      "nominal": "1000",
+      "min": "990",
+      "max": "1010"
+    },
+    {
+      "id": "T",
+      "nominal": "2000",
+      "min": "1980",
+      "max": "2020"
+    }
+  ]
+}
