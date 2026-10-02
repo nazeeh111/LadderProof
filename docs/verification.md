@@ -11,6 +11,12 @@ The admitted mathematics, core implementation and application failure paths rece
 - **Artifact identity:** wheel runtime modules/assets and source-archive deliverable files were compared byte for byte against final source, including the README, screenshot, model/contracts/references, examples, tests, CI and installed-smoke script. Offline builds used existing bundled Python 3.12.14 and setuptools 84.0.0. No new local build dependency or remote service was needed.
 - **Desktop browser:** edit/analyze/open/verify/compare interactions were observed on the actual 1280-pixel desktop browser surface. The [workbench screenshot](workbench.jpg) records an analyzed state. Browser export was requested, but the download event timed out and no saved file path or bytes were captured. The installed CLI export/reopen checks above provide separate artifact evidence.
 
+## Browser follow-up for 0.1.1
+
+On October 2, 2026, Chromium 151 on macOS captured the actual certificate download from the local application. The saved JSON was reopened through the browser file chooser, and the application independently recomputed all 4,096 corners and 63 transitions. The six-bit ±5% certificate retained its exact minimum of −269227/7660721 V and attaining 31→32 transition. Editing before reopening disabled export of the stale result.
+
+The rendered application was checked at 390 and 1,440 pixels. At phone width, result panels now shrink within the page while the circuit diagram and chart scroll inside their own containers. Chart labels retain at least their 10-pixel design size. Analysis, import, export and keyboard chart selection remained usable; the page had no horizontal overflow or observed runtime errors in this workflow. This is source-application evidence, separate from the earlier installed-wheel and native-browser checks.
+
 The nodal solver uses exact Gaussian elimination. The verifier independently reconstructs the ladder using backward Thevenin reductions, then re-enumerates every admitted corner and computes every code/transition bound. They share only the declared-input contract and resource limits, so this is independent circuit/result reconstruction rather than wholly independent input policy. No ngspice or physical comparison was run.
 
 ## Reproduce
@@ -20,10 +26,10 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 node --test tests/frontend.test.cjs
 ```
 
-To test an installed wheel outside the checkout, use a fresh virtual environment at an external path, install with `pip install --no-index --no-deps path/to/ladderproof-0.1.0-py3-none-any.whl`, then run that environment's Python with `-I scripts/installed_smoke.py --source /absolute/path/to/checkout`. The script refuses an import from inside the source checkout and performs real CLI and served-asset/worker checks.
+To test an installed wheel outside the checkout, use a fresh virtual environment at an external path, install with `pip install --no-index --no-deps path/to/ladderproof-0.1.1-py3-none-any.whl`, then run that environment's Python with `-I scripts/installed_smoke.py --source /absolute/path/to/checkout`. The script refuses an import from inside the source checkout and performs real CLI and served-asset/worker checks.
 
 The [September 30, 2026 hosted run for release commit `67925bd`](https://github.com/nazeeh111/LadderProof/actions/runs/36784796139) completed successfully: Python 3.11/3.14 source tests, Node 24 frontend tests and the fresh installed-wheel journey. Python 3.11 was unavailable locally; its pass is hosted evidence. Actions are pinned to verified immutable official release commits, the token has only repository-content read permission, and checkout does not persist credentials. Weekly Dependabot updates cover Actions only.
 
 ## Remaining limits
 
-Native viewport override was unavailable, so no synthetic narrow-screen browser pass is claimed. Screen-reader behavior, comprehensive WCAG conformance, a standalone offline HTML-file experience and physical hardware were not verified. The validated application uses its local server and bundled assets. File export/import and inspection evidence cover the admitted model, not arbitrary SPICE circuits, correlations, dynamic switching, yield or real-world measurement uncertainty.
+The earlier native-browser viewport override was unavailable; the follow-up above establishes a real 390-pixel Chromium layout check. Other browsers, screen-reader behavior, comprehensive WCAG conformance, a standalone offline HTML-file experience and physical hardware were not verified. The validated application uses its local server and bundled assets. File export/import and inspection evidence cover the admitted model, not arbitrary SPICE circuits, correlations, dynamic switching, yield or real-world measurement uncertainty.
