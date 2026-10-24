@@ -19,6 +19,15 @@ The rendered application was checked at 390 and 1,440 pixels. At phone width, re
 
 The nodal solver uses exact Gaussian elimination. The verifier independently reconstructs the ladder using backward Thevenin reductions, then re-enumerates every admitted corner and computes every code/transition bound. They share only the declared-input contract and resource limits, so this is independent circuit/result reconstruction rather than wholly independent input policy. No ngspice or physical comparison was run.
 
+## Post-tag current-main CI evidence (2026-10-24)
+
+The `v0.1.1` release tag points to [`43f3ea69`](https://github.com/nazeeh111/LadderProof/commit/43f3ea691a832faec0a6fc15083a8b915f2ad414); current `main` is later, at [`0475111c`](https://github.com/nazeeh111/LadderProof/commit/0475111c96d2e77eb3c7031571da8110aa5fa340). The results below describe the post-tag source and do not imply that the published tag contains later changes. [Exact-main GitHub Actions run](https://github.com/nazeeh111/LadderProof/actions/runs/40044395428) passed all jobs:
+
+- Python 3.11 and 3.14 source suites: 22 tests passed on each.
+- Node 24 frontend suite: 15 tests passed.
+- Distribution job: wheel and source archive built; the wheel installed outside the checkout with no runtime dependencies; the installed CLI completed create/edit/analyze/reopen/verify/tighten/compare, served assets matched source, and spawned analysis plus independent verification passed.
+- The latest main source includes a larger left chart margin for narrow-screen axis labels. This CI run did not include a rendered screenshot comparison of that specific margin change; the separate October 2 visual check predates it.
+
 ## Reproduce
 
 ```sh
