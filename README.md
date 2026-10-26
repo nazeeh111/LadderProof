@@ -1,10 +1,16 @@
 # LadderProof
 
-LadderProof checks whether an ideal static R-2R resistor digital-to-analog converter (DAC) can decrease when its binary input increases. Enter an independent resistance interval for each component. It enumerates every admitted interval corner with exact fractions, reports the worst adjacent-code step and the resistor assignment that attains it, and exports a record that a separate verifier completely recomputes.
-
-This is a small electrical analysis application, with an installed CLI and a local browser interface. It models 2–6 bit voltage-mode ladders with ideal switches, a fixed positive reference and an unloaded output. The result concerns the declared static resistor model. Actual switching glitches, settling, temperature, reference regulation and physical devices are outside it. See [the model and mathematical argument](docs/model.md).
+LadderProof checks whether an ideal static R-2R resistor digital-to-analog converter (DAC) can decrease when its input increases. Inspect the worst adjacent-code step and its resistor assignment, then export a record that an independent verifier completely recomputes.
 
 ![Six-bit R-2R analysis with a decreasing 31 to 32 transition and its exact attaining resistor assignment](docs/workbench.jpg)
+
+[Open the circuit and result at full size](docs/workbench.jpg).
+
+## Model and limits
+
+Enter an independent resistance interval for each component. The analysis enumerates every admitted interval corner using exact fractions.
+
+This is a small electrical analysis application, with an installed CLI and a local browser interface. It models 2–6 bit voltage-mode ladders with ideal switches, a fixed positive reference and an unloaded output. The result concerns the declared static resistor model. Actual switching glitches, settling, temperature, reference regulation and physical devices are outside it. See [the model and mathematical argument](docs/model.md).
 
 ## Try the complete workflow
 
