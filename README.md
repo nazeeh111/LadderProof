@@ -43,7 +43,7 @@ The nodal solver performs exact Gaussian elimination at every unique tolerance-b
 
 The verifier uses independent backward Thevenin reductions, not the nodal solver. It re-enumerates all corners and recomputes all bounds, nominal values and witnesses. It validates global claims instead of only checking that the single adverse example is attainable. The exported record is a replayable computation certificate, not a succinct formal proof or cryptographic attestation.
 
-The method and DAC architecture are established. The contribution here is bounded exact implementation, explicit component assumptions, inspectable attained transitions, complete independent verification and the usable analysis/edit/export workflow. [Sources and origins](docs/references.md) credit the circuit-analysis and exact-bounds lineage; this project is not a SPICE replacement.
+The method and DAC architecture are established. The contribution here is bounded exact implementation, explicit component assumptions, inspectable attained transitions, complete independent verification and the usable analysis/edit/export workflow. [Model references](docs/references.md) explain the circuit analysis and exact bounds; this project is not a SPICE replacement.
 
 ## Limits and failures
 
