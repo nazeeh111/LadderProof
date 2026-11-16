@@ -112,3 +112,37 @@ test('late certificate parse failure does not replace a newer edit or its status
 test('slow first initialization exposes no editable reference or executable old design',async()=>{
   let release;const app=setup(new Promise(resolve=>release=resolve));assert.equal(app.nodes.vref.disabled,true);assert.equal(app.nodes.title.disabled,true);assert.equal(app.nodes.analyze.disabled,true);app.nodes.analyze.click();assert.equal(app.requests.filter(r=>r.url==='/api/jobs').length,0);release(copy(certificate.design));await sleep(0);assert.equal(app.nodes.vref.disabled,false);assert.equal(app.nodes.title.disabled,false);assert.equal(app.nodes.analyze.disabled,false);assert.equal(app.evaluate('state.design.vref'),'1');
 });
+test('catalog distinguishes optimal selection and verifies it before use',async()=>{
+  const app=setup();await sleep(0);
+  app.evaluate("catalogLoad(state.design)");
+  const selected=copy(certificate);const result={status:'optimal',work:{verified_designs:1,total_designs:2},request:{catalog:selected.design.resistors.map(r=>({id:r.id,options:[{tolerance:'1/100',cost:'1'}]}))},selection:{indices:selected.design.resistors.map(()=>0),cost:'12',certificate:selected}};
+  let operation='';app.handle(r=>{if(r.url==='/api/jobs'){operation=r.body.operation;return {id:'catalog-job'};}return {state:'complete',result:operation==='catalog'?result:selected};});
+  app.nodes['catalog-search'].click();await sleep(230);assert.match(app.nodes['catalog-summary'].textContent,/Optimal in this finite catalog/);assert.equal(app.nodes['catalog-choose'].hidden,false);assert.equal(app.evaluate('state.certificate'),null);
+  app.nodes['catalog-choose'].click();await sleep(230);assert.equal(operation,'choose');assert.equal(app.evaluate('state.certificate.results.worst_transition.step'),selected.results.worst_transition.step);assert.match(app.nodes['result-state'].textContent,/verified/i);
+});
+test('catalog unfinished and infeasible outcomes do not enable selection',async()=>{
+  const app=setup();await sleep(0);app.evaluate('catalogLoad(state.design)');let result={status:'unfinished',reason:'work-limit',work:{verified_designs:1,total_designs:2}};
+  app.handle(r=>r.url==='/api/jobs'?{id:'catalog-job'}:{state:'complete',result});app.nodes['catalog-search'].click();await sleep(230);assert.match(app.nodes['catalog-summary'].textContent,/unfinished/);assert.equal(app.nodes['catalog-choose'].hidden,true);
+  result={status:'infeasible',work:{verified_designs:2,total_designs:2}};app.nodes['catalog-search'].click();await sleep(230);assert.match(app.nodes['catalog-summary'].textContent,/All 2 combinations/);assert.equal(app.nodes['catalog-choose'].hidden,true);
+});
+test('catalog async focus follows completion without stealing a manual move',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`document.hasFocus=()=>true;document.listeners={};document.addEventListener=(name,fn)=>document.listeners[name]=fn;document.removeEventListener=(name)=>delete document.listeners[name];`);
+  const focus=id=>{app.nodes[id].focus=()=>app.evaluate(`document.activeElement=document.getElementById('${id}')`);};for(const id of ['catalog-search','catalog-summary','catalog-choose','result-heading'])focus(id);
+  app.evaluate('catalogLoad(state.design);document.activeElement=document.getElementById("catalog-search")');let finish;app.handle(r=>r.url==='/api/jobs'?{id:'focus-job'}:new Promise(resolve=>{finish=resolve;}));app.nodes['catalog-search'].click();app.evaluate('document.activeElement=document.body');await sleep(210);finish({state:'complete',result:{status:'infeasible',work:{verified_designs:2,total_designs:2}}});await sleep(10);assert.equal(app.evaluate('document.activeElement'),app.nodes['catalog-summary']);assert.equal(app.nodes['catalog-selection-help'].hidden,true);
+  app.evaluate('document.activeElement=document.getElementById("catalog-search")');app.nodes['catalog-search'].click();app.evaluate('document.activeElement=document.body');await sleep(210);app.evaluate('document.activeElement=document.getElementById("bits");document.listeners.focusin({target:document.activeElement})');finish({state:'complete',result:{status:'unfinished',reason:'work-limit',work:{verified_designs:1,total_designs:2}}});await sleep(10);assert.equal(app.evaluate('document.activeElement'),app.nodes.bits);
+});
+test('catalog selected certificate returns keyboard focus to complete result',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`document.hasFocus=()=>true;document.addEventListener=()=>{};document.removeEventListener=()=>{};catalogLoad(state.design);catalogState.result={selection:{}};document.activeElement=document.getElementById('catalog-choose')`);app.nodes['result-heading'].focus=()=>app.evaluate("document.activeElement=document.getElementById('result-heading')");app.handle(r=>r.url==='/api/jobs'?{id:'choose-job'}:{state:'complete',result:copy(certificate)});app.nodes['catalog-choose'].click();app.evaluate('document.activeElement=document.body');await sleep(230);assert.equal(app.evaluate('document.activeElement'),app.nodes['result-heading']);
+});
+test('background pointer and keyboard activity during search do not steal focus',async()=>{
+  for(const event of ['pointerdown','keydown']){
+    const app=setup();await sleep(0);app.evaluate(`document.hasFocus=()=>true;document.listeners={};document.addEventListener=(name,fn)=>document.listeners[name]=fn;document.removeEventListener=(name)=>delete document.listeners[name];catalogLoad(state.design);document.activeElement=document.getElementById('catalog-search')`);
+    app.nodes['catalog-summary'].focus=()=>app.evaluate("document.activeElement=document.getElementById('catalog-summary')");let finish;app.handle(r=>r.url==='/api/jobs'?{id:'activity-job'}:new Promise(resolve=>{finish=resolve;}));app.nodes['catalog-search'].click();app.evaluate(`document.activeElement=document.body;document.listeners.${event}({target:document.body})`);await sleep(210);finish({state:'complete',result:{status:'infeasible',work:{verified_designs:2,total_designs:2}}});await sleep(10);assert.equal(app.evaluate('document.activeElement===document.body'),true);assert.equal(app.evaluate('Object.keys(document.listeners).length'),0);
+  }
+});
+test('catalog completion and failures clear the shared busy status',async()=>{
+  const app=setup();await sleep(0);app.evaluate('catalogLoad(state.design)');let outcome={status:'infeasible',work:{verified_designs:2,total_designs:2}};
+  app.handle(r=>r.url==='/api/jobs'?{id:'status-job'}:{state:'complete',result:outcome});app.nodes['catalog-search'].click();await sleep(230);assert.equal(app.nodes.status.textContent,'Complete: finite catalog exhausted.');
+  outcome={status:'unfinished',reason:'work-limit',work:{verified_designs:1,total_designs:2}};app.nodes['catalog-search'].click();await sleep(230);assert.match(app.nodes.status.textContent,/Stopped:/);
+  app.handle(r=>r.url==='/api/jobs'?{id:'status-job'}:{state:'failed',error:'Invalid tolerance'});app.nodes['catalog-search'].click();await sleep(230);assert.equal(app.nodes.status.textContent,'Invalid tolerance');assert.match(app.nodes['catalog-status'].textContent,/Could not complete: Invalid tolerance/);
+});

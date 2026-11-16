@@ -15,9 +15,23 @@ const num = raw => { const p=String(raw).split('/'); return Number(p[0])/(p.leng
 const display = raw => {const n=num(raw);return n===0?'0':Math.abs(n)<.0001||Math.abs(n)>100000?n.toExponential(5):n.toPrecision(6).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1');};
 function message(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
 async function request(path,data,raw=false){const response=await fetch(path,{method:data===undefined?'GET':'POST',headers:data===undefined?{}:{'Content-Type':'application/json'},body:data===undefined?undefined:raw?data:JSON.stringify(data),cache:'no-store'}); const result=await response.json();if(!response.ok){const error=Error(result.error||`Request failed (${response.status}).`);error.status=response.status;throw error;}return result;}
-function controls(){const busy=state.pending||state.loading;$('analyze').disabled=!state.design||busy;$('cancel').hidden=!busy;$('save-design').disabled=!state.design||state.loading;$('compare').disabled=!state.baseline||!state.certificate||busy;$('export-certificate').disabled=!state.certificate||busy;$('baseline').disabled=!state.certificate||busy;$('title').disabled=!state.design;$('vref').disabled=!state.design;for(const button of document.querySelectorAll('[data-tolerance]'))button.disabled=!state.design;}
+function controls(){const busy=state.pending||state.loading;$('catalog-search').disabled=busy;$('catalog-choose').disabled=busy;$('catalog-cancel').hidden=!state.pending;$('analyze').disabled=!state.design||busy;$('cancel').hidden=!busy;$('save-design').disabled=!state.design||state.loading;$('compare').disabled=!state.baseline||!state.certificate||busy;$('export-certificate').disabled=!state.certificate||busy;$('baseline').disabled=!state.certificate||busy;$('title').disabled=!state.design;$('vref').disabled=!state.design;for(const button of document.querySelectorAll('[data-tolerance]'))button.disabled=!state.design;}
 function hideResult(){state.certificate=null;$('result-content').hidden=true;$('empty').hidden=false;$('result-heading').textContent='Awaiting complete analysis';$('result-state').textContent='No certificate';$('result-state').className='badge';$('comparison').hidden=true;controls();}
+let catalogFocus=null;
+function beginCatalogFocus(origin){
+  if(catalogFocus)catalogFocus.stop();
+  if(document.activeElement!==origin)return null;
+  const token={moved:false,origin,listener:null,activity:null,stop(){document.removeEventListener('focusin',this.listener);document.removeEventListener('pointerdown',this.activity,true);document.removeEventListener('keydown',this.activity,true);if(catalogFocus===this)catalogFocus=null;}};
+  token.listener=event=>{if(event.target!==token.origin&&event.target!==document.body)token.moved=true;};
+  token.activity=()=>{token.moved=true;};
+  document.addEventListener('focusin',token.listener);document.addEventListener('pointerdown',token.activity,true);document.addEventListener('keydown',token.activity,true);catalogFocus=token;return token;
+}
+function finishCatalogFocus(token,target){
+  if(!token)return;const canFocus=!token.moved&&(document.activeElement===document.body||document.activeElement===token.origin)&&document.hasFocus();token.stop();if(canFocus)target.focus();
+}
 function invalidate(text='Changed. Analyze every corner to refresh the result.'){
+  if(state.pending&&catalogFocus)catalogFocus.stop();
+  if(state.pending&&(state.operation==='catalog'||state.operation==='choose'))$('catalog-status').textContent='Computation cancelled or superseded. No new conclusion was produced.';
   state.revision++;if(state.loading&&state.design)$('bits').value=String(state.design.bits);state.loading=false;const old=state.job;state.job=null;state.pending=false;hideResult();if(old) request(`/api/jobs/${old}/cancel`,{}).catch(()=>{});message(text);schematic();resources();
 }
 function beginLoading(text){invalidate(text);state.loading=true;controls();return state.revision;}
@@ -30,11 +44,11 @@ async function defaults(bits){const revision=beginLoading('Preparing the new lad
 async function run(operation,payload,onComplete){
   if(state.loading){message('A design or certificate is loading. Wait, cancel, or edit to keep the current design.');return;}
   if(state.pending){message('A computation is already running. Cancel it or wait.',true);return;}
-  const revision=state.revision;state.pending=true;controls();message(operation==='verify'?'Verifying every imported corner independently…':operation==='compare'?'Independently verifying both comparison certificates…':'Enumerating all corners and adjacent transitions with exact arithmetic…');
+  const revision=state.revision;state.pending=true;state.operation=operation;controls();message(operation==='verify'?'Verifying every imported corner independently…':operation==='compare'?'Independently verifying both comparison certificates…':operation==='catalog'?'Searching the finite catalog in exact cost order…':operation==='choose'?'Independently verifying the selected certificate…':'Enumerating all corners and adjacent transitions with exact arithmetic…');
   let identifier=null;
   try{let started;for(let attempt=0;attempt<10;attempt++){if(revision!==state.revision)return;try{started=await request('/api/jobs',{operation,...payload});break;}catch(error){if(error.status!==409||attempt===9)throw error;await pause(150);}}identifier=started.id;if(revision!==state.revision){await request(`/api/jobs/${identifier}/cancel`,{});return;}state.job=identifier;
     while(true){await pause(200);if(revision!==state.revision)return;const job=await request(`/api/jobs/${identifier}`);if(revision!==state.revision)return;if(job.state==='running')continue;state.job=null;state.pending=false;controls();if(job.state!=='complete')throw Error(job.error||'No complete result was produced.');onComplete(job.result);break;}
-  }catch(error){if(revision===state.revision){state.job=null;state.pending=false;controls();message(error.message,true);}}
+  }catch(error){if(revision===state.revision){state.job=null;state.pending=false;controls();message(error.message,true);if(operation==='catalog'||operation==='choose'){$('catalog-status').textContent=`Could not complete: ${error.message}`;finishCatalogFocus(catalogFocus,$('catalog-search'));}}}
 }
 function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)+'\n'],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 async function readJSONText(file){if(!file)throw Error('No file selected.');if(file.size>1048576)throw Error('JSON files must be at most 1 MiB.');return file.text();}
@@ -54,4 +68,44 @@ $('certificate-file').addEventListener('change',async event=>{const file=event.t
 $('baseline').addEventListener('click',()=>{if(!state.certificate)return;state.baseline=clone(state.certificate);$('baseline-note').textContent=`Baseline retained: ${state.baseline.design.title}, smallest step ${state.baseline.results.worst_transition.step} V. Change bounds, analyze again, then verify the comparison.`;$('comparison').hidden=true;controls();message('Comparison baseline retained with its exact design and complete certificate.');});
 $('compare').addEventListener('click',()=>{if(!state.baseline||!state.certificate)return;run('compare',{before:state.baseline,after:state.certificate},result=>{if(result.status!=='verified-comparison')throw Error('Comparison verification did not complete.');const element=$('comparison');element.hidden=false;element.replaceChildren();for(const text of [`Both certificates independently verified.`, `Baseline minimum: ${result.before.worst_transition.step} V (${result.before.nondecreasing?'nondecreasing':'decrease possible'}).`,`Current minimum: ${result.after.worst_transition.step} V (${result.after.nondecreasing?'nondecreasing':'decrease possible'}).`,`Exact minimum-step change: ${result.minimum_step_change_volts} V.`]){const p=document.createElement('p');p.textContent=text;element.append(p);}message('Comparison complete. Both certificates were independently recomputed.');});});
 for(const [id,chart]of [['transfer-tab','transfer'],['steps-tab','steps']])$(id).addEventListener('click',()=>{state.chart=chart;for(const name of ['transfer-tab','steps-tab']){const active=name===id;$(name).classList.toggle('selected',active);$(name).setAttribute('aria-pressed',String(active));}plot();});
+// Catalog choices are a snapshot: subsequent design edits invalidate the result.
+const catalogState={request:null,result:null};
+function catalogClear(text='Catalog changed. Search again to obtain a result.'){
+  catalogState.result=null;$('catalog-result').hidden=true;$('catalog-status').textContent=text;
+  if(state.pending)invalidate('Inputs changed. The running computation was cancelled.');
+}
+function catalogRender(){
+  const root=$('catalog-parts');root.replaceChildren();
+  catalogState.request.catalog.forEach((part,partIndex)=>{
+    const box=document.createElement('div');box.className='catalog-part';const heading=document.createElement('h3');heading.textContent=part.id;box.append(heading);
+    part.options.forEach((option,index)=>{
+      const row=document.createElement('div');row.className='catalog-option';
+      for(const [key,label] of [['tolerance','Tolerance / fraction'],['cost','Cost / units']]){
+        const wrapper=document.createElement('label');const caption=document.createElement('span');caption.textContent=label;if(index>0)caption.className='sr-only';wrapper.append(caption);const input=document.createElement('input');input.value=option[key];input.maxLength=80;input.spellcheck=false;input.setAttribute('aria-label',`${part.id} option ${index+1} ${label}`);input.addEventListener('input',()=>{option[key]=input.value.trim();catalogClear();});wrapper.append(input);row.append(wrapper);
+      }
+      const remove=document.createElement('button');remove.textContent='×';remove.title=`Remove ${part.id} option ${index+1}`;remove.setAttribute('aria-label',`Remove ${part.id} option ${index+1}`);remove.disabled=part.options.length===1;remove.addEventListener('click',()=>{part.options.splice(index,1);catalogClear();catalogRender();});row.append(remove);box.append(row);
+    });
+    const add=document.createElement('button');add.textContent='Add option';add.setAttribute('aria-label',`Add option for ${part.id}`);add.disabled=part.options.length>=4;add.addEventListener('click',()=>{part.options.push({tolerance:'1/100',cost:'1'});catalogClear();catalogRender();});box.append(add);root.append(box);
+  });
+}
+function catalogLoad(design,example=false){
+  catalogClear('Ready to search.');catalogState.request={format:'ladderproof.catalog.v1',design:clone(design),minimum_step_volts:'1/5',catalog:design.resistors.map(r=>({id:r.id,options:[{tolerance:'1/10',cost:'0'},{tolerance:'1/100',cost:'1'}]}))};
+  $('catalog-threshold').value='1/5';$('catalog-limit').value='128';$('catalog-design-note').textContent=`Snapshot: ${design.title} · ${design.bits} bits · Vref ${design.vref} V. Resistor nominal values are taken from this snapshot.`;$('catalog-editor').hidden=false;catalogRender();
+}
+$('catalog-use-design').addEventListener('click',()=>{try{catalogLoad(designFromEditor());}catch(error){message(error.message,true);}});
+$('catalog-example').addEventListener('click',async()=>{const revision=beginLoading('Preparing the 2-bit catalog example…');try{const d=await request('/api/design',{bits:2,tolerance:'1/10',vref:'1'});if(revision!==state.revision)return;state.loading=false;controls();catalogLoad(d,true);message('Catalog example ready; current design remains available.');}catch(error){loadingFailure(revision,error);}});
+for(const id of ['catalog-threshold','catalog-limit'])$(id).addEventListener('input',()=>catalogClear());
+$('catalog-search').addEventListener('click',()=>{if(!catalogState.request||state.pending||state.loading)return;catalogClear('Searching the finite catalog…');const req=clone(catalogState.request);req.minimum_step_volts=$('catalog-threshold').value.trim();const limit=Number($('catalog-limit').value);const focus=beginCatalogFocus($('catalog-search'));run('catalog',{request:req,max_designs:limit},result=>{
+  catalogState.result=result;$('catalog-result').hidden=false;const summary=$('catalog-summary'),selection=$('catalog-selection');selection.replaceChildren();$('catalog-choose').hidden=result.status!=='optimal';$('catalog-selection-help').hidden=result.status!=='optimal';
+  if(result.status==='optimal'){
+    summary.textContent=`Optimal in this finite catalog · cost ${result.selection.cost} units · ${result.work.verified_designs} of ${result.work.total_designs} combinations verified in cost order.`;
+    result.selection.indices.forEach((index,i)=>{const option=result.request.catalog[i].options[index],line=document.createElement('div');line.className='catalog-choice';line.textContent=`${result.request.catalog[i].id}: ±${option.tolerance} of nominal · cost ${option.cost}`;selection.append(line);});
+    const line=document.createElement('div');line.className='catalog-choice';line.textContent=`Verified minimum step: ${result.selection.certificate.results.worst_transition.step} V`;selection.append(line);
+    $('catalog-status').textContent='Search complete. The first feasible combination in exact cost order is optimal within the declared catalog.';
+  }else if(result.status==='infeasible'){summary.textContent=`No listed combination meets the threshold. All ${result.work.total_designs} combinations were checked.`;$('catalog-status').textContent='Complete: finite catalog exhausted.';}
+  else{summary.textContent=`Search unfinished after ${result.work.verified_designs} verified combinations. No optimality or infeasibility conclusion.`;$('catalog-status').textContent=`Stopped: ${result.reason || 'work limit'}. Increase limits or simplify the catalog and retry.`;}
+  message($('catalog-status').textContent);finishCatalogFocus(focus,$('catalog-summary'));
+});});
+$('catalog-cancel').addEventListener('click',()=>{const focus=beginCatalogFocus($('catalog-cancel'));catalogClear('Search cancelled. No optimality or infeasibility conclusion.');invalidate('Cancelled. No certificate was produced.');if(focus&&!focus.moved&&document.hasFocus()&&(document.activeElement===document.body||document.activeElement===focus.origin))$('catalog-search').focus();});
+$('catalog-choose').addEventListener('click',()=>{if(!catalogState.result||state.pending||state.loading)return;const selection=clone(catalogState.result);const focus=beginCatalogFocus($('catalog-choose'));$('catalog-status').textContent='Independently verifying the selection…';run('choose',{selection},certificate=>{if(state.baseline&&state.baseline.design.bits!==certificate.design.bits){state.baseline=null;$('baseline-note').textContent='New bit count. Keep a complete result to start a comparison.';}acceptDesign(certificate.design);showCertificate(certificate,true);$('catalog-status').textContent='Selected certificate independently verified. Export it or retain it as a comparison baseline above.';finishCatalogFocus(focus,$('result-heading'));});});
 defaults(6);

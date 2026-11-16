@@ -58,6 +58,40 @@ class HTTPTests(unittest.TestCase):
             time.sleep(.02)
         self.assertIsNone(self.server.jobs.current)
 
+    def test_catalog_choose_and_unfinished_jobs(self):
+        from test_catalog import request
+        data=request()
+        status,job=self.request('POST','/api/jobs',{'operation':'catalog','request':data})
+        self.assertEqual(status,202)
+        result=self.finished(job['id'])
+        self.assertEqual(result['state'],'complete')
+        selection=result['result']
+        self.assertEqual(selection['status'],'optimal')
+        self.ready()
+        status,job=self.request('POST','/api/jobs',{'operation':'choose','selection':selection})
+        self.assertEqual(status,202)
+        certificate=self.finished(job['id'])
+        self.assertEqual(certificate['state'],'complete')
+        self.assertEqual(certificate['result'],selection['selection']['certificate'])
+        self.ready()
+        status,job=self.request('POST','/api/jobs',{'operation':'catalog','request':data,'max_designs':1})
+        self.assertEqual(status,202)
+        unfinished=self.finished(job['id'])
+        self.assertEqual(unfinished['state'],'complete')
+        self.assertEqual(unfinished['result']['status'],'unfinished')
+        self.assertIsNone(unfinished['result']['selection'])
+        self.ready()
+        status,_=self.request('POST','/api/jobs',{'operation':'catalog','request':data,'max_designs':True})
+        self.assertEqual(status,400)
+        altered=copy.deepcopy(selection)
+        altered['selection']['cost']='999'
+        status,job=self.request('POST','/api/jobs',{'operation':'choose','selection':altered})
+        self.assertEqual(status,202)
+        failed=self.finished(job['id'])
+        self.assertEqual(failed['state'],'failed')
+        self.assertNotIn('result',failed)
+        self.ready()
+
     def test_real_design_analyze_verify_compare_journey_and_tamper_failure(self):
         status, design = self.request('POST', '/api/design', {'bits': 2, 'tolerance': '1/100', 'vref': '1'})
         self.assertEqual(status, 200)

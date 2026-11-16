@@ -22,12 +22,8 @@ def _work(output, cancelled, operation, payload):
     try:
         from . import analyze, verify, compare, Budget
         budget = Budget(seconds=MAX_SECONDS, cancel=cancelled.is_set)
-        if operation == 'analyze':
-            result = analyze(payload['design'], budget=budget)
-        elif operation == 'verify':
-            result = verify(payload['certificate'], budget=budget)
-        else:
-            result = compare(payload['before'], payload['after'], budget=budget)
+        from .operations import execute
+        result = execute(operation,payload,budget=budget)
         output.put({'state': 'complete', 'result': result})
     except Exception as exc:
         from .errors import Refused
@@ -274,13 +270,21 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == '/api/jobs':
                 operation = data.get('operation')
                 keys = {'analyze': {'operation', 'design'}, 'verify': {'operation', 'certificate'},
-                        'compare': {'operation', 'before', 'after'}}
-                if operation not in keys or set(data) != keys[operation]:
-                    raise ValueError('Expected an analyze, verify or compare payload.')
+                        'compare': {'operation', 'before', 'after'},
+                        'catalog': {'operation','request'}, 'choose': {'operation','selection'}}
+                if operation not in keys or (set(data)-({'max_designs','max_corner_solves'} if operation=='catalog' else set())) != keys[operation]:
+                    raise ValueError('Expected an analyze, verify, compare, catalog or choose payload.')
                 # Bound cheap validation before allocating the worker.
                 from . import parse_design
                 if operation == 'analyze':
                     parse_design(data['design'])
+                elif operation == 'catalog':
+                    from .catalog import parse_catalog, _limit
+                    parse_catalog(data['request'])
+                    _limit(data.get('max_designs',128),'max_designs',4096)
+                    _limit(data.get('max_corner_solves',1_048_576),'max_corner_solves',2_097_152)
+                elif operation == 'choose' and not isinstance(data['selection'],dict):
+                    raise ValueError('Selection must be a catalog result object.')
                 elif operation == 'verify' and not isinstance(data['certificate'], dict):
                     raise ValueError('Certificate must be a JSON object.')
                 elif operation == 'compare' and not all(isinstance(data[k], dict) for k in ('before', 'after')):

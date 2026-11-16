@@ -67,9 +67,15 @@ def parser():
     verification.add_argument('certificate',type=Path)
     comparison=sub.add_parser('compare',help='independently verify two certificates and compare minimum steps')
     comparison.add_argument('before',type=Path); comparison.add_argument('after',type=Path)
-    for command in (analysis,verification,comparison):
+    catalog=sub.add_parser('catalog',help='find minimum-cost verified feasible tolerance allocation in a finite catalog')
+    catalog.add_argument('request',type=Path)
+    catalog.add_argument('--max-designs',type=int,default=128)
+    catalog.add_argument('--max-corner-solves',type=int,default=1_048_576)
+    choose=sub.add_parser('choose',help='independently verify and export the chosen feasible certificate')
+    choose.add_argument('selection',type=Path)
+    for command in (analysis,verification,comparison,catalog,choose):
         command.add_argument('--seconds',type=float,default=60 if command is comparison else 30,help='complete-operation deadline, greater than zero and at most 120')
-    for command in (create,analysis,verification,comparison):
+    for command in (create,analysis,verification,comparison,catalog,choose):
         command.add_argument('--output',type=Path); command.add_argument('--force',action='store_true',help='atomically replace the output only after success')
     serve=sub.add_parser('serve',help='open the local browser application')
     serve.add_argument('--port',type=int,default=8766)
@@ -87,11 +93,17 @@ def main(argv=None):
         if args.command=='create': result=make_design(args.bits,args.tolerance,args.vref)
         else:
             budget=Budget(seconds=args.seconds)
-            if args.command=='analyze': result=analyze(load_json(args.design),budget=budget)
-            elif args.command=='verify': result=verify(load_json(args.certificate),budget=budget)
-            else: result=compare(load_json(args.before),load_json(args.after),budget=budget)
+            from .operations import execute
+            keys={'analyze':('design',),'verify':('certificate',),'compare':('before','after'),
+                  'catalog':('request',),'choose':('selection',)}[args.command]
+            payload={key:load_json(getattr(args,key)) for key in keys}
+            if args.command=='catalog':
+                payload.update(max_designs=args.max_designs,max_corner_solves=args.max_corner_solves)
+            result=execute(args.command,payload,budget=budget)
+        if args.command=="catalog" and result["status"]=="unfinished" and args.output is not None and args.output.exists():
+            raise Refused('catalog search unfinished; existing output preserved; use a fresh path or stdout for the unfinished report')
         write_json(result,args.output,args.force)
-        return 0
+        return 3 if args.command=="catalog" and result["status"]=="unfinished" else 0
     except VerificationError as exc: status,code,message='invalid-certificate',1,str(exc)
     except Refused as exc: status,code,message='refused',3,str(exc)
     except (Invalid,OSError) as exc: status,code,message='invalid-input',2,str(exc)
