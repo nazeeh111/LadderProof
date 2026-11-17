@@ -1,0 +1,85 @@
+{
+  "source": "examples/six-bit-five-percent.certificate.json",
+  "source_sha256": "ea7a750519cf2d526f4a82effd2767b04bd64050eb0bd7cc33145d40bc4bb1df",
+  "matplotlib": "3.10.8",
+  "font_policy": [
+    "DejaVu Sans",
+    "Arial",
+    "sans-serif"
+  ],
+  "quantity": "static output voltage at integer input code",
+  "units": "volts; annotated step converted to millivolts by multiplying by 1000",
+  "scope": "one attaining resistor assignment, not per-code interval extrema or physical measurements",
+  "transformations": [
+    "Exact Thevenin reduction at each of 64 integer codes",
+    "Fraction to float only for plot positions",
+    "Detail panel displays codes 28 through 35 with labeled local voltage axis",
+    "No smoothing, sampling, fitted curve, confidence interval or stochastic data"
+  ],
+  "worst_transition": {
+    "from": 31,
+    "to": 32,
+    "step": "-269227/7660721",
+    "corner": 3585,
+    "from_voltage": "3910102/7660721",
+    "to_voltage": "3640875/7660721",
+    "dnl_lsb": "-24891249/7660721",
+    "resistors": [
+      {
+        "id": "B0",
+        "value": "2100"
+      },
+      {
+        "id": "B1",
+        "value": "1900"
+      },
+      {
+        "id": "B2",
+        "value": "1900"
+      },
+      {
+        "id": "B3",
+        "value": "1900"
+      },
+      {
+        "id": "B4",
+        "value": "1900"
+      },
+      {
+        "id": "B5",
+        "value": "1900"
+      },
+      {
+        "id": "S0",
+        "value": "950"
+      },
+      {
+        "id": "S1",
+        "value": "950"
+      },
+      {
+        "id": "S2",
+        "value": "950"
+      },
+      {
+        "id": "S3",
+        "value": "1050"
+      },
+      {
+        "id": "S4",
+        "value": "1050"
+      },
+      {
+        "id": "T",
+        "value": "2100"
+      }
+    ]
+  },
+  "outputs": {
+    "falling-step-mobile.png": "b5f94f175f72e7be28f218cb3772bf47e6da39975f4a726c0c7be10fdb7a54ed",
+    "falling-step-mobile.svg": "a9d6c165fcf828730011fbfe8a739861849690ef38d29f01c508ddf3ff02beda",
+    "falling-step.png": "a4189baf17271d6270163ba84e635769bc15ec59370d1d94e9178dbb46979380",
+    "falling-step.svg": "57d8165ac411d446f59039d494390275d70967804c0d9fbe2d13acec342dc141",
+    "five-percent-witness.csv": "2d4586e9f67416cf147e8a3a363f584d661d037ad7ab5e8ee26a1cf619bf70b9"
+  }
+}

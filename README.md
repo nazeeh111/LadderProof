@@ -1,12 +1,32 @@
 # LadderProof
 
-Find decreasing steps in an ideal 2–6 bit R-2R digital-to-analog converter (DAC). Inspect the worst adjacent-code transition and its resistor assignment, then export a record for complete independent verification.
+**The code rises. The voltage falls.**
 
-[Run the workflow](#try-the-complete-workflow) · [Model and assumptions](#model-and-limits) · [Verification record](docs/verification.md)
+Find the exact resistor assignment that makes an ideal R-2R digital-to-analog
+converter step backward. Inspect the circuit, export its result, and recheck every
+admitted corner with an independent verifier.
 
-![Six-bit R-2R analysis with a decreasing 31 to 32 transition and its exact attaining resistor assignment](docs/workbench.jpg)
+[Verify a result](#verify-the-included-results-without-installing) · [Open the workbench](#try-the-complete-workflow) · [Choose component tolerances](#choose-a-tolerance-allocation) · [Model and assumptions](#model-and-limits)
 
-[Open the circuit and result at full size](docs/workbench.jpg).
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/presentation/falling-step-mobile.svg">
+  <img src="docs/presentation/falling-step.svg" alt="Static six-bit DAC transfer for the attaining five-percent resistor assignment: code 31 produces about 0.5104 V, but code 32 produces about 0.4753 V. A detail panel shows the negative step on a labeled local voltage scale.">
+</picture>
+
+At a 1 V reference, the six-bit ±5% model admits a **31 → 32 decrease of
+−269227/7660721 V**, approximately **−35.14 mV**. The whole-transfer view and
+its detail use the same physical resistor assignment. These are exact ideal
+circuit calculations, not hardware measurements.
+[Exact data, resistor values and reproduction](docs/presentation/README.md).
+
+- **Independent ±5% intervals:** worst adjacent step −269227/7660721 V. A decrease is attainable.
+- **Independent ±1% intervals:** worst adjacent step 186147971/34016602567 V. Every admitted adjacent step is positive.
+
+The verifier checks all 4,096 corners for each model. The two cases use their own
+attaining assignments; they are not measurements of one physical device.
+
+[Inspect the complete circuit workbench](docs/workbench.jpg), including the
+attaining resistor assignment, or read the [verification record](docs/verification.md).
 
 ## Verify the included results without installing
 
