@@ -1,0 +1,65 @@
+{
+  "status": "verified",
+  "corner_count": 4096,
+  "bits": 6,
+  "nondecreasing": false,
+  "worst_transition": {
+    "from": 31,
+    "to": 32,
+    "step": "-269227/7660721",
+    "corner": 3585,
+    "from_voltage": "3910102/7660721",
+    "to_voltage": "3640875/7660721",
+    "dnl_lsb": "-24891249/7660721",
+    "resistors": [
+      {
+        "id": "B0",
+        "value": "2100"
+      },
+      {
+        "id": "B1",
+        "value": "1900"
+      },
+      {
+        "id": "B2",
+        "value": "1900"
+      },
+      {
+        "id": "B3",
+        "value": "1900"
+      },
+      {
+        "id": "B4",
+        "value": "1900"
+      },
+      {
+        "id": "B5",
+        "value": "1900"
+      },
+      {
+        "id": "S0",
+        "value": "950"
+      },
+      {
+        "id": "S1",
+        "value": "950"
+      },
+      {
+        "id": "S2",
+        "value": "950"
+      },
+      {
+        "id": "S3",
+        "value": "1050"
+      },
+      {
+        "id": "S4",
+        "value": "1050"
+      },
+      {
+        "id": "T",
+        "value": "2100"
+      }
+    ]
+  }
+}
