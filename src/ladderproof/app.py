@@ -267,6 +267,9 @@ class Handler(BaseHTTPRequestHandler):
                 # Only strict JSON parsing happens here. This object is still
                 # unverified and must go through the independent worker.
                 self._send(200, data)
+            elif self.path == '/api/import-catalog':
+                from .catalog import parse_catalog
+                self._send(200, parse_catalog(data).to_dict())
             elif self.path == '/api/jobs':
                 operation = data.get('operation')
                 keys = {'analyze': {'operation', 'design'}, 'verify': {'operation', 'certificate'},
