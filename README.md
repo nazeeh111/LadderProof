@@ -19,12 +19,10 @@ its detail use the same physical resistor assignment. These are exact ideal
 circuit calculations, not hardware measurements.
 [Exact data, resistor values and reproduction](docs/presentation/README.md).
 
-| Declared component intervals | Exact worst adjacent step | Complete verifier result |
-| --- | --- | --- |
-| Independent ±5% | −269227/7660721 V | A decrease is attainable |
-| Independent ±1% | 186147971/34016602567 V | Every admitted adjacent step is positive |
+- **Independent ±5% intervals:** worst adjacent step −269227/7660721 V. A decrease is attainable.
+- **Independent ±1% intervals:** worst adjacent step 186147971/34016602567 V. Every admitted adjacent step is positive.
 
-The verifier checks all 4,096 corners for each model. The two rows use their own
+The verifier checks all 4,096 corners for each model. The two cases use their own
 attaining assignments; they are not measurements of one physical device.
 
 [Inspect the complete circuit workbench](docs/workbench.jpg), including the
