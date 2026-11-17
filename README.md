@@ -45,7 +45,7 @@ Both are ideal static models, not physical measurements or yield estimates.
 
 ## Try the complete workflow
 
-Python 3.11 or newer is required. Runtime dependencies are all in the standard library. This checkout identifies itself as development version `0.1.2.dev0`. Install this checkout in a virtual environment:
+Python 3.11 or newer is required. Runtime dependencies are all in the standard library. This checkout identifies itself as development version `0.1.3.dev0`. Install this checkout in a virtual environment:
 
 ```sh
 python3 -m venv .venv
@@ -77,6 +77,14 @@ selection can be independently verified and brought into the existing workbench
 for certificate export or comparison. **Use current design** snapshots the current
 nominal values and reference. Changes to the design after that snapshot do not
 change the catalog; select it again to refresh the snapshot.
+
+**Save catalog** stores that complete snapshot, every tolerance/cost option and
+the exact threshold in the existing CLI request format. **Open catalog** restores
+these inputs without changing the current design or certificate; search again
+to establish a result. Invalid or superseded imports retain current work. Saved
+DNL thresholds retain their normalized LSB units rather than becoming volts.
+Search limits are operational settings and are not included in the request file.
+The saved file can also be passed directly to `ladderproof catalog`.
 
 ![Desktop finite-catalog result for the synthetic two-bit example: cost 2 units and exact minimum step 151/731 V](docs/catalog-desktop.jpg)
 

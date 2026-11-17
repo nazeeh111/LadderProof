@@ -97,8 +97,8 @@ test('accepted defaults replace generation and stale earlier analysis stays hidd
 });
 test('design and certificate file imports preserve duplicate fields for strict server rejection',async()=>{
   const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)})`);assert.equal(app.nodes['export-certificate'].disabled,false);app.handle(r=>({ _error:'Duplicate JSON field: vref' }));const rawDesign=JSON.stringify(certificate.design).replace('"vref":"1"','"vref":"2","vref":"1"');
-  app.nodes['design-file'].files=[{size:rawDesign.length,text:async()=>rawDesign}];await app.nodes['design-file'].emit('change');assert.equal(app.requests.at(-1).raw,rawDesign);assert.equal(app.requests.at(-1).url,'/api/import-design');assert.match(app.nodes.status.textContent,/Duplicate/);assert.equal(app.evaluate('state.certificate'),null);assert.equal(app.nodes['export-certificate'].disabled,true);
-  const rawCert=JSON.stringify(certificate).replace('"vref":"1"','"vref":"2","vref":"1"');app.nodes['certificate-file'].files=[{size:rawCert.length,text:async()=>rawCert}];await app.nodes['certificate-file'].emit('change');assert.equal(app.requests.at(-1).raw,rawCert);assert.equal(app.requests.at(-1).url,'/api/import-certificate');assert.equal(app.requests.filter(r=>r.url==='/api/jobs').length,0);assert.equal(app.evaluate('state.certificate'),null);assert.equal(app.nodes['export-certificate'].disabled,true);
+  app.nodes['design-file'].files=[{size:rawDesign.length,text:async()=>rawDesign}];await app.nodes['design-file'].emit('change');assert.equal(app.requests.at(-1).raw,rawDesign);assert.equal(app.requests.at(-1).url,'/api/import-design');assert.match(app.nodes.status.textContent,/Duplicate/);assert.equal(app.evaluate('state.certificate.corner_count'),4096);assert.equal(app.nodes['export-certificate'].disabled,false);
+  const rawCert=JSON.stringify(certificate).replace('"vref":"1"','"vref":"2","vref":"1"');app.nodes['certificate-file'].files=[{size:rawCert.length,text:async()=>rawCert}];await app.nodes['certificate-file'].emit('change');assert.equal(app.requests.at(-1).raw,rawCert);assert.equal(app.requests.at(-1).url,'/api/import-certificate');assert.equal(app.requests.filter(r=>r.url==='/api/jobs').length,0);assert.equal(app.evaluate('state.certificate.corner_count'),4096);assert.equal(app.nodes['export-certificate'].disabled,false);
 });
 test('delayed certificate read blocks analysis and is discarded after a later edit',async()=>{
   const app=setup();await sleep(0);let releaseRead;app.handle(r=>r.body);app.nodes['certificate-file'].files=[{size:1000,text:()=>new Promise(resolve=>releaseRead=resolve)}];const importing=app.nodes['certificate-file'].emit('change');
@@ -145,4 +145,63 @@ test('catalog completion and failures clear the shared busy status',async()=>{
   app.handle(r=>r.url==='/api/jobs'?{id:'status-job'}:{state:'complete',result:outcome});app.nodes['catalog-search'].click();await sleep(230);assert.equal(app.nodes.status.textContent,'Complete: finite catalog exhausted.');
   outcome={status:'unfinished',reason:'work-limit',work:{verified_designs:1,total_designs:2}};app.nodes['catalog-search'].click();await sleep(230);assert.match(app.nodes.status.textContent,/Stopped:/);
   app.handle(r=>r.url==='/api/jobs'?{id:'status-job'}:{state:'failed',error:'Invalid tolerance'});app.nodes['catalog-search'].click();await sleep(230);assert.equal(app.nodes.status.textContent,'Invalid tolerance');assert.match(app.nodes['catalog-status'].textContent,/Could not complete: Invalid tolerance/);
+});
+
+const portableCatalog=JSON.parse(fs.readFileSync(path.join(root,'examples/tolerance-catalog.json'),'utf8'));
+test('catalog save/open uses the canonical request and preserves current certificate',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)});catalogAccept(${JSON.stringify(portableCatalog)});globalThis.downloaded=[];download=(value,name)=>downloaded.push({value,name});`);
+  app.handle(r=>r.url==='/api/import-catalog'?r.body:{_error:'unexpected'});
+  app.nodes['catalog-threshold'].value='2/9';app.nodes['catalog-threshold'].emit('input');
+  await app.nodes['catalog-save'].click();assert.equal(app.evaluate('downloaded.length'),1);assert.equal(app.evaluate('downloaded[0].value.minimum_step_volts'),'2/9');
+  const dnl=copy(portableCatalog);delete dnl.minimum_step_volts;dnl.minimum_dnl_lsb='-1/5';
+  app.nodes['catalog-file'].files=[{size:1000,text:async()=>JSON.stringify(dnl)}];await app.nodes['catalog-file'].emit('change');
+  assert.equal(app.evaluate('catalogState.request.minimum_dnl_lsb'),'-1/5');assert.equal(app.nodes['catalog-threshold-label'].textContent,'Minimum DNL / ideal LSB');assert.equal(app.nodes['catalog-threshold'].value,'-1/5');
+  assert.equal(app.evaluate('state.certificate.corner_count'),4096);assert.equal(app.nodes['export-certificate'].disabled,false);assert.equal(app.evaluate('catalogState.result'),null);
+  app.nodes['catalog-threshold'].value='-1/10';app.nodes['catalog-threshold'].emit('input');await app.nodes['catalog-save'].click();assert.equal(app.evaluate('downloaded[1].value.minimum_dnl_lsb'),'-1/10');assert.equal(app.evaluate("'minimum_step_volts' in downloaded[1].value"),false);
+});
+test('invalid or oversized catalog import preserves authored snapshot, certificate and export',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)});catalogAccept(${JSON.stringify(portableCatalog)});`);const before=app.evaluate('JSON.stringify(catalogState.request)');app.handle(()=>({_error:'Duplicate JSON field: cost'}));const raw='{"cost":"7","cost":"8"}';
+  app.nodes['catalog-file'].files=[{size:raw.length,text:async()=>raw}];await app.nodes['catalog-file'].emit('change');assert.equal(app.requests.at(-1).raw,raw);assert.equal(app.requests.at(-1).url,'/api/import-catalog');assert.equal(app.evaluate('JSON.stringify(catalogState.request)'),before);assert.equal(app.nodes['export-certificate'].disabled,false);assert.match(app.nodes.status.textContent,/retained/);
+  const count=app.requests.length;app.nodes['catalog-file'].files=[{size:1048577,text:async()=>{throw Error('oversized read')}}];await app.nodes['catalog-file'].emit('change');assert.equal(app.requests.length,count);assert.equal(app.evaluate('JSON.stringify(catalogState.request)'),before);assert.equal(app.nodes['export-certificate'].disabled,false);
+});
+test('delayed catalog validation cannot overwrite a newer authored threshold or export',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)});catalogAccept(${JSON.stringify(portableCatalog)});`);let release;app.handle(r=>new Promise(resolve=>release=resolve));const incoming=copy(portableCatalog);incoming.minimum_step_volts='1/9';app.nodes['catalog-file'].files=[{size:1000,text:async()=>JSON.stringify(incoming)}];const importing=app.nodes['catalog-file'].emit('change');await sleep(0);app.nodes['catalog-threshold'].value='3/10';app.nodes['catalog-threshold'].emit('input');release(incoming);await importing;assert.equal(app.nodes['catalog-threshold'].value,'3/10');assert.equal(app.nodes['export-certificate'].disabled,false);assert.equal(app.evaluate('state.certificate.corner_count'),4096);
+});
+test('newer catalog import wins and a superseded save never downloads old inputs',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`catalogAccept(${JSON.stringify(portableCatalog)});globalThis.downloaded=[];download=value=>downloaded.push(value);`);const pending=[];app.handle(r=>new Promise(resolve=>pending.push({resolve,value:r.body})));
+  const first=copy(portableCatalog),second=copy(portableCatalog);first.minimum_step_volts='1/9';second.minimum_step_volts='2/9';
+  app.nodes['catalog-file'].files=[{size:1000,text:async()=>JSON.stringify(first)}];const older=app.nodes['catalog-file'].emit('change');await sleep(0);app.nodes['catalog-file'].files=[{size:1000,text:async()=>JSON.stringify(second)}];const newer=app.nodes['catalog-file'].emit('change');await sleep(0);pending[1].resolve(second);await newer;pending[0].resolve(first);await older;assert.equal(app.nodes['catalog-threshold'].value,'2/9');
+  const saving=app.nodes['catalog-save'].click();await sleep(0);app.nodes['catalog-threshold'].value='4/9';app.nodes['catalog-threshold'].emit('input');pending[2].resolve(pending[2].value);await saving;assert.equal(app.evaluate('downloaded.length'),0);
+});
+test('a later computation supersedes pending catalog validation and its late error',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`catalogAccept(${JSON.stringify(portableCatalog)});`);let release;
+  app.handle(r=>r.url==='/api/import-catalog'?new Promise(resolve=>release=resolve):r.url==='/api/jobs'?{id:'newer-operation',state:'running'}:{state:'complete',result:copy(certificate)});
+  app.nodes['catalog-file'].files=[{size:1000,text:async()=>JSON.stringify(portableCatalog)}];const importing=app.nodes['catalog-file'].emit('change');await sleep(0);app.nodes.analyze.click();await sleep(230);const status=app.nodes.status.textContent;release({_error:'stale validation failure'});await importing;assert.equal(app.nodes.status.textContent,status);assert.equal(app.nodes['export-certificate'].disabled,false);assert.equal(app.evaluate('state.certificate.corner_count'),4096);
+});
+
+test('cancelling a pending job retains a valid certificate and rejects a late start',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)})`);let release;app.handle(r=>r.url==='/api/jobs'?new Promise(resolve=>release=resolve):{state:'cancelled'});
+  app.nodes.analyze.click();assert.equal(app.nodes['export-certificate'].disabled,true);app.nodes.cancel.click();release({id:'late-retained'});await sleep(10);
+  assert.equal(app.evaluate('state.certificate.corner_count'),4096);assert.equal(app.nodes['export-certificate'].disabled,false);assert.ok(app.requests.some(r=>r.url==='/api/jobs/late-retained/cancel'));
+  app.nodes.vref.value='2';app.nodes.vref.emit('input');assert.equal(app.evaluate('state.certificate'),null);assert.equal(app.nodes['export-certificate'].disabled,true);
+});
+test('failed verification of an imported certificate preserves the previously valid result',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)})`);app.handle(r=>r.url==='/api/import-certificate'?r.body:r.url==='/api/jobs'?{id:'bad-import'}:{state:'failed',error:'Independent recomputation mismatch'});
+  app.nodes['certificate-file'].files=[{size:1000,text:async()=>JSON.stringify(certificate)}];await app.nodes['certificate-file'].emit('change');await sleep(230);
+  assert.equal(app.evaluate('state.certificate.corner_count'),4096);assert.equal(app.nodes['export-certificate'].disabled,false);assert.match(app.nodes.status.textContent,/mismatch/);
+});
+test('catalog edits supersede a pending example without losing the current certificate',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)});catalogLoad(state.design)`);const before=app.evaluate('JSON.stringify(catalogState.request)');let release;
+  app.handle(r=>r.url==='/api/design'?new Promise(resolve=>release=resolve):{state:'cancelled'});app.nodes['catalog-example'].click();await sleep(0);app.nodes['catalog-threshold'].value='17/19';app.nodes['catalog-threshold'].emit('input');const next=copy(certificate.design);next.title='Stale example';release(next);await sleep(0);
+  assert.equal(app.nodes['catalog-threshold'].value,'17/19');assert.equal(app.evaluate('JSON.stringify(catalogState.request)'),before);assert.equal(app.evaluate('state.certificate.corner_count'),4096);assert.equal(app.nodes['export-certificate'].disabled,false);assert.equal(app.evaluate('state.loading'),false);
+  app.handle(()=>next);app.nodes['catalog-example'].click();await sleep(0);assert.equal(app.nodes['catalog-threshold'].value,'1/5');assert.equal(app.evaluate('catalogState.request.design.title'),'Stale example');assert.equal(app.nodes['export-certificate'].disabled,false);
+});
+test('superseded catalog example failure cannot report its stale error or discard a certificate',async()=>{
+  const app=setup();await sleep(0);app.evaluate(`showCertificate(${JSON.stringify(certificate)});catalogLoad(state.design)`);let release;
+  app.handle(()=>new Promise(resolve=>release=resolve));app.nodes['catalog-example'].click();await sleep(0);app.nodes['catalog-threshold'].value='13/17';app.nodes['catalog-threshold'].emit('input');release({_error:'old example rejected'});await sleep(0);
+  assert.equal(app.nodes['catalog-threshold'].value,'13/17');assert.equal(app.nodes.status.classes.has('error'),false);assert.match(app.nodes.status.textContent,/older example was not applied/);assert.equal(app.evaluate('state.loading'),false);assert.equal(app.evaluate('state.certificate.corner_count'),4096);assert.equal(app.nodes['export-certificate'].disabled,false);
+});
+test('an old example error cannot end a newer design load',async()=>{
+  const app=setup();await sleep(0);app.evaluate('catalogLoad(state.design)');let oldResponse,newResponse;app.handle(r=>r.body.tolerance==='1/10'?new Promise(resolve=>oldResponse=resolve):new Promise(resolve=>newResponse=resolve));
+  app.nodes['catalog-example'].click();await sleep(0);app.nodes.cancel.click();app.nodes.bits.value='5';app.nodes.bits.emit('change');await sleep(0);oldResponse({_error:'old request failed'});await sleep(0);assert.equal(app.evaluate('state.loading'),true);assert.equal(app.nodes.analyze.disabled,true);assert.doesNotMatch(app.nodes.status.textContent,/old request failed/);newResponse(copy(certificate.design));await sleep(0);assert.equal(app.evaluate('state.loading'),false);
 });

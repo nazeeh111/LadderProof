@@ -58,6 +58,30 @@ class HTTPTests(unittest.TestCase):
             time.sleep(.02)
         self.assertIsNone(self.server.jobs.current)
 
+    def test_portable_catalog_admission_preserves_threshold_kind_and_never_starts_worker(self):
+        from ladderproof.catalog import parse_catalog
+        from test_catalog import request
+        data = request()
+        for dnl in (False, True):
+            value = copy.deepcopy(data)
+            if dnl:
+                value['minimum_dnl_lsb'] = '-1/5'
+                del value['minimum_step_volts']
+            status, canonical = self.request('POST', '/api/import-catalog', value)
+            self.assertEqual(status, 200)
+            self.assertEqual(canonical, parse_catalog(value).to_dict())
+            self.assertEqual('minimum_dnl_lsb' in canonical, dnl)
+            self.assertIsNone(self.server.jobs.current)
+        raw = json.dumps(data).replace('"minimum_step_volts": "1/5"', '"minimum_step_volts": "1/4", "minimum_step_volts": "1/5"')
+        status, error = self.request('POST', '/api/import-catalog', raw)
+        self.assertEqual(status, 400)
+        self.assertIn('Duplicate', error['error'])
+        for update in ({'minimum_step_volts': 0.2}, {'extra': True}, {'minimum_dnl_lsb': '-1/5'}):
+            with self.subTest(update=update):
+                status, _ = self.request('POST', '/api/import-catalog', data | update)
+                self.assertEqual(status, 400)
+        self.assertIsNone(self.server.jobs.current)
+
     def test_catalog_choose_and_unfinished_jobs(self):
         from test_catalog import request
         data=request()
